@@ -8,7 +8,11 @@ Ini irisan vertikal **MVP 0.1** dari `NovelOS — Backlog V1` (Fase 0–5, versi
 | Bagian | Status |
 |---|---|
 | Pipeline end-to-end dengan adapter **mock** | **Teruji** — 21 tes lolos; pengaman utama diuji dengan mutasi (merusaknya membuat tes gagal) |
-| Adapter **Gemini / OpenRouter** | **Belum teruji live.** Ditulis mengikuti bentuk REST publik; yang diuji hanya parsing terhadap respons tiruan. Jalankan `novelos selftest-live` dulu |
+| Adapter **Gemini teks** (`gemini-3.8-flash`) | **Teruji live 2026-11-14** — `selftest-live` lolos (JSON mode). Kadang 503 "high demand", retry saja |
+| Adapter **Gemini gambar** (`gemini-3.1-flash-image`) | **Tidak bisa di free tier** — limit harian 0 (429), butuh billing. Jangan andalkan tanpa kartu |
+| Adapter **Pollinations gambar** (`flux`, gratis, tanpa key) | **Teruji live 2026-11-14** — satu panel 800x1280 kembali ~7 detik, kualitas layak draf. Watermark tetap muncul meski `nologo=true`; referensi gambar tidak dikirim (hanya deskripsi teks) |
+| Adapter **OpenRouter teks** | **Teruji live 2026-11-14** — model gratis `nvidia/nemotron-3.5-super-vl:free`. Model default di `.env.example` (google/gemini-2.5-flash) berbayar, jangan pakai dengan key $0 |
+| Adapter **OpenRouter gambar** | **Belum teruji live.** Tidak ada model gambar gratis di OpenRouter saat ini (semua model `:free` hanya output teks) |
 | QC visual oleh model | Ada jalurnya (`image.review`), **belum pernah dijalankan** pada gambar asli. Dengan mock, hanya pemeriksaan otomatis (ukuran, kosong, duplikat) yang jalan |
 | Konsistensi karakter | **Belum terbukti.** Mekanismenya ada (referensi + blok prompt + QC), tapi risiko terbesar proyek ini baru bisa dinilai dengan gambar asli |
 | Referensi karakter sample | **Placeholder** (kotak warna). Ganti dengan gambar asli lewat `add_reference` |

@@ -85,6 +85,30 @@ def test_compose_stacks_panels_with_gaps():
     assert comp.boxes == [(0, 400), (450, 1050)]
 
 
+def test_pollinations_generate_normalizes_and_uses_stable_seed(monkeypatch):
+    """PollinationsImage: prompt -> GET, bytes normalized to the requested size, same seed on retry."""
+    import urllib.parse
+    from novelos.config import load_settings
+    s = load_settings({})
+    img = png(noise=True, size=(100, 100))
+    urls = []
+    monkeypatch.setattr(adapters, "_http_bytes", lambda url, timeout: urls.append(url) or img)
+    out = adapters.PollinationsImage(s).generate("A red circle.", [], (80, 120))
+    assert Image.open(io.BytesIO(out)).size == (80, 120)
+    assert urls[0].startswith("https://image.pollinations.ai/prompt/")
+    assert "model=flux" in urls[0] and "nologo=true" in urls[0]
+    adapters.PollinationsImage(s).generate("A red circle.\nREVISION — fix it", [], (80, 120))
+    seed = lambda u: urllib.parse.parse_qs(urllib.parse.urlparse(u).query)["seed"][0]
+    assert seed(urls[0]) == seed(urls[1])  # a revision retry regenerates from the same seed
+
+
+def test_pollinations_rejects_unreadable_bytes(monkeypatch):
+    from novelos.config import load_settings
+    monkeypatch.setattr(adapters, "_http_bytes", lambda url, timeout: b"not an image")
+    with pytest.raises(ProviderError):
+        adapters.PollinationsImage(load_settings({})).generate("p", [], (80, 120))
+
+
 def test_gemini_and_openrouter_response_parsing_with_stubbed_http(monkeypatch):
     """Checks OUR parsing of the response shapes we ASSUME. It does not prove the real APIs match."""
     import base64

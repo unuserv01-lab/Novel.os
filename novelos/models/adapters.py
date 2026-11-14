@@ -1,8 +1,9 @@
 """Pluggable model adapters. Swap provider with NOVELOS_TEXT_PROVIDER / NOVELOS_IMAGE_PROVIDER.
 
 `mock` is deterministic, offline and free: it is what the test-suite and the sample run use.
-`gemini` and `openrouter` follow the providers' public REST shapes but have NOT been verified against
-the live APIs (they could not be reached from the build sandbox). Run `novelos selftest-live` once.
+`gemini` and `openrouter` text adapters are verified live (2026-11-14). The Gemini image adapter
+is NOT usable on the free tier (daily limit 0, billing required). `pollinations` is free with no
+key and verified live for image generation (2026-11-14). Run `novelos selftest-live` to re-check.
 """
 
 from __future__ import annotations
@@ -191,6 +192,24 @@ def _http_json(url: str, body: dict, headers: dict, timeout: float, secret: str)
     raise ProviderError(last.replace(secret, "***") if secret else last)
 
 
+def _http_bytes(url: str, timeout: float) -> bytes:
+    """GET raw bytes (image providers). Retries on 429/5xx like _http_json."""
+    last = ""
+    for attempt in range(3):
+        req = urllib.request.Request(url, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            last = f"HTTP {e.code}: {e.read()[:300].decode('utf-8', 'replace')}"
+            if e.code not in (429, 500, 502, 503, 504):
+                break
+        except (urllib.error.URLError, TimeoutError) as e:
+            last = f"network error: {e}"
+        time.sleep(2**attempt)
+    raise ProviderError(last)
+
+
 def _key(name: str) -> str:
     v = os.environ.get(name, "")
     if not v:
@@ -311,6 +330,41 @@ def make_text(s: Settings):
     return {"mock": lambda: MockText(), "gemini": lambda: GeminiText(s), "openrouter": lambda: OpenRouterText(s)}[s.text_provider]()
 
 
+class PollinationsImage:
+    """Free image generation, no key: https://image.pollinations.ai (model flux by default).
+
+    Live-verified 2026-11-14: one 800x1280 panel prompt returned a usable JPEG in ~7s.
+    Honest limits: the prompt travels as a URL query, so very long prompts can hit URL
+    length limits; reference images are NOT sent (Pollinations takes image URLs, and this
+    project has no public host for its reference bytes), so character consistency rests on
+    the text description blocks in the prompt; a "pollinations.ai" watermark appeared even
+    with nologo=true. The seed is derived from the prompt (before any REVISION note) so a
+    retry regenerates from the same seed.
+    """
+
+    def __init__(self, s: Settings):
+        self.s, self.name = s, f"pollinations-{s.pollinations_model}"
+
+    def generate(self, prompt, references, size):
+        seed = _h(prompt.split("REVISION")[0].strip()) % (2**31)
+        q = urllib.parse.urlencode({
+            "model": self.s.pollinations_model,
+            "width": size[0],
+            "height": size[1],
+            "seed": seed,
+            "nologo": "true",
+        })
+        url = "https://image.pollinations.ai/prompt/" + urllib.parse.quote(prompt) + "?" + q
+        raw = _http_bytes(url, self.s.http_timeout)
+        try:
+            return normalize_image(raw, size)
+        except Exception as e:
+            raise ProviderError(f"Pollinations returned unreadable image bytes: {e}") from None
+
+    def review(self, image, checklist):
+        return None  # no vision endpoint; only the automated checks run
+
+
 def make_image(s: Settings):
     fail = int(os.environ.get("NOVELOS_MOCK_FAIL_EVERY", "0"))
-    return {"mock": lambda: MockImage(fail), "gemini": lambda: GeminiImage(s), "openrouter": lambda: OpenRouterImage(s)}[s.image_provider]()
+    return {"mock": lambda: MockImage(fail), "gemini": lambda: GeminiImage(s), "openrouter": lambda: OpenRouterImage(s), "pollinations": lambda: PollinationsImage(s)}[s.image_provider]()
