@@ -1,0 +1,36 @@
+{
+  "slug": "sample-manhwa",
+  "name": "Regresi Sang Pedang",
+  "genre": "fantasy",
+  "bible": {
+    "lore": "Kekaisaran Aldren runtuh seratus tahun lalu ketika Pedang Fajar retak. Sihir kini langka dan dibayar dengan umur.",
+    "world_rules": [
+      "Setiap penggunaan sihir memotong umur penggunanya.",
+      "Regresi waktu hanya terjadi sekali per jiwa dan membawa ingatan, bukan kekuatan.",
+      "Luka yang didapat sebelum regresi meninggalkan bekas yang tetap terlihat."
+    ],
+    "timeline": ["Tahun 0: Pedang Fajar retak", "Tahun 100: Kael mati di Benteng Reruntuhan", "Tahun 100 (regresi): Kael terbangun tiga tahun sebelum kehancuran"],
+    "style": "2D illustrated manhwa, clean line art, cel shading, dramatic lighting, rich saturated colours, consistent character design, vertical webtoon framing"
+  },
+  "locations": [
+    {"code": "LOC_RUINED_KEEP", "name": "Benteng Reruntuhan", "description": "Benteng batu hitam yang separuh runtuh, dikelilingi kabut dingin dan bendera robek."},
+    {"code": "LOC_CRIMSON_FOREST", "name": "Hutan Merah", "description": "Hutan berdaun merah darah, cahaya senja menembus kabut tipis."}
+  ],
+  "characters": [
+    {"code": "CHR_KAEL_001", "name": "Kael",
+     "identity": {"hair": "long black hair", "eyes": "crimson eyes", "face": "sharp features", "body": "tall, lean, athletic"},
+     "outfits": {"default": "dark travelling coat with silver clasps, fingerless gloves"},
+     "expressions": ["neutral", "angry", "resolute", "pained"],
+     "state": {"timeline": "post_regression"}},
+    {"code": "CHR_VORN_001", "name": "Vorn",
+     "identity": {"hair": "short white hair", "eyes": "pale gold eyes", "face": "thin smile, scar across left cheek", "body": "broad-shouldered, very tall"},
+     "outfits": {"default": "ivory armour with black trim and a long grey cape"},
+     "expressions": ["cold", "amused"],
+     "state": {"timeline": "present"}},
+    {"code": "CHR_LYRA_001", "name": "Lyra",
+     "identity": {"hair": "chin-length auburn hair", "eyes": "green eyes", "face": "round face, freckles", "body": "short, agile"},
+     "outfits": {"default": "green hooded cloak over leather armour"},
+     "expressions": ["curious", "worried"],
+     "state": {"timeline": "present"}}
+  ]
+}
