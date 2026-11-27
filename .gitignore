@@ -5,3 +5,11 @@ data/
 *.db
 .env
 .venv/
+venv/
+novelos.egg-info/
+*.mp3
+*.mp4
+*.png
+*.jpg
+*.webp
+zeno-narration-real/

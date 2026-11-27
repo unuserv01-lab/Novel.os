@@ -23,6 +23,9 @@ class Project(Base):
     slug: Mapped[str] = mapped_column(String(80), unique=True)
     name: Mapped[str] = mapped_column(String(200))
     genre: Mapped[str] = mapped_column(String(80), default="fantasy")
+    # Room key that produces this project's episodes ("manhwa" | "explainer").
+    # Added in langkah 3; old DBs gain the column via ensure_project_type_column().
+    project_type: Mapped[str] = mapped_column(String(40), default="manhwa")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -77,8 +80,8 @@ class Episode(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     number: Mapped[int] = mapped_column(Integer)
     premise: Mapped[str] = mapped_column(Text)
-    # draft -> scripted -> storyboarded -> rendered -> awaiting_approval -> approved -> exported
-    # side states: needs_attention (panels failed QC), paused_budget (cost cap hit)
+    # draft -> scripted -> storyboarded -> voiced -> rendered -> awaiting_approval -> approved -> exported
+    # side states: needs_attention (shots failed QC), paused_budget (cost cap hit)
     status: Mapped[str] = mapped_column(String(30), default="draft")
     script: Mapped[dict | None] = mapped_column(JSON, default=None)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
@@ -144,8 +147,27 @@ def make_engine(url: str):
     return create_engine(url, **kwargs)
 
 
+def ensure_project_type_column(engine) -> bool:
+    """Add `projects.project_type` to a DB created before langkah 3.
+
+    `create_all` only creates missing *tables*, never missing *columns*, so
+    a pre-existing `data/novelos.db` would otherwise keep working but never
+    gain the column. This ALTER is idempotent (no-op when the column already
+    exists) and backfills old rows with the default 'manhwa'. The same
+    statement works on SQLite and PostgreSQL. Returns True when it migrated.
+    """
+    from sqlalchemy import inspect, text
+
+    if "project_type" in {c["name"] for c in inspect(engine).get_columns("projects")}:
+        return False
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE projects ADD COLUMN project_type VARCHAR(40) NOT NULL DEFAULT 'manhwa'"))
+    return True
+
+
 def init_db(engine) -> None:
     Base.metadata.create_all(engine)
+    ensure_project_type_column(engine)
 
 
 def session_factory(engine):

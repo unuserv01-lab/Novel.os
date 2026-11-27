@@ -10,8 +10,9 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from novelos.db import Character, Episode, Panel, session_scope
-from novelos.models.adapters import ProviderError
+from novelos import sample
+from novelos.db import Character, Episode, Panel, Project, session_scope
+from novelos.libs.models.adapters import ProviderError
 from novelos.pipeline import StateError
 from novelos.studio import build
 
@@ -35,6 +36,14 @@ def auth(x_token: str | None = Header(default=None)):
 class NewEpisode(BaseModel):
     project: str = "sample-manhwa"
     premise: str
+    project_type: str | None = None  # only used when the project does not exist yet
+
+
+class NewProject(BaseModel):
+    slug: str
+    name: str | None = None
+    genre: str | None = None
+    project_type: str = "manhwa"
 
 
 def _wrap(fn):
@@ -46,9 +55,27 @@ def _wrap(fn):
         raise HTTPException(422, str(e)) from None
 
 
+@app.get("/projects", dependencies=[Depends(auth)])
+def list_projects():
+    with session_scope(studio().factory) as s:
+        rows = s.scalars(select(Project).order_by(Project.id)).all()
+        return [{"slug": p.slug, "name": p.name, "genre": p.genre,
+                 "project_type": p.project_type or "manhwa"} for p in rows]
+
+
+@app.post("/projects", dependencies=[Depends(auth)])
+def new_project(b: NewProject):
+    _wrap(lambda: sample.ensure_project(studio().factory, b.slug, b.project_type, b.name, b.genre))
+    return {"project": b.slug, "project_type": b.project_type}
+
+
 @app.post("/episodes", dependencies=[Depends(auth)])
 def new_episode(b: NewEpisode):
-    return {"episode_id": _wrap(lambda: studio().create_episode(b.project, b.premise))}
+    def _create():
+        if b.project_type is not None:
+            sample.ensure_project(studio().factory, b.project, b.project_type)
+        return studio().create_episode(b.project, b.premise)
+    return {"episode_id": _wrap(_create)}
 
 
 @app.post("/episodes/{eid}/produce", dependencies=[Depends(auth)])
@@ -72,9 +99,16 @@ def export(eid: int):
     return _wrap(lambda: studio().export(eid))
 
 
+@app.put("/shots/{pid}/narration", dependencies=[Depends(auth)])
+def edit_narration(pid: int, lines: list[dict]):
+    _wrap(lambda: studio().edit_narration(pid, lines))
+    return {"updated_panel": pid, "approval_reset": True}
+
+
 @app.put("/panels/{pid}/dialog", dependencies=[Depends(auth)])
 def edit_dialog(pid: int, dialog: list[dict]):
-    _wrap(lambda: studio().edit_dialog(pid, dialog))
+    """Deprecated alias of /shots/{pid}/narration (v1 route, same behaviour)."""
+    _wrap(lambda: studio().edit_narration(pid, dialog))
     return {"updated_panel": pid, "approval_reset": True}
 
 
